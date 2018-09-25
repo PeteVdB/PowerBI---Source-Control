@@ -1,5 +1,40 @@
 param([String]$Path)
 
+
+function Remove-UnusedFiles
+{
+    Remove-Item -Path "$($location).zip"
+    Remove-Item -Path "$($location)\DataMashup"
+    Remove-Item -Path "$($location)\Metadata"
+    Remove-Item -Path "$($location)\SecurityBindings"
+    Remove-Item -Path "$($location)\Settings"
+    Remove-Item -Path "$($location)\Version"
+}
+
+function Create-JsonFiles
+{
+    foreach($jsonFileName in $jsonFileNames)
+    {
+        $file = Get-ItemProperty -Path "$($location)\$($jsonFileName)"
+
+        $text = Get-Content "$($location)\$($jsonFileName)" -Encoding Unknown | Out-File -FilePath "$($location)\$($jsonFileName).json" -Encoding utf8
+        Remove-Item -Path "$($location)\$($jsonFileName)"
+    }
+}
+
+function Create-XmlFiles
+{
+    $text = Get-Content "$($location)\DataMashup"
+    $string = $text[4].ToString()
+    $len = $string.IndexOf("/LocalPackageMetadataFile") - $string.IndexOf("LocalPackageMetadataFile")
+    $string.Substring($string.IndexOf("LocalPackageMetadataFile") -1, $len + 27) | Out-File -FilePath "$($location)\DataMashup.xml" -Encoding utf8
+}
+
+
+#===================================================
+#MAIN SECTION
+#===================================================
+
 #Specify files with json data
 $jsonFileNames = "DataModelSchema", "DiagramState", "Report\Layout"
 
@@ -14,35 +49,9 @@ foreach ($pbitFile in $pbitFiles)
     Copy-Item $pbitFile.FullName -Destination "$($location).zip"
     Expand-Archive -Path "$($location).zip" -DestinationPath "$($location)" -Force
 
-    $text = Get-Content "$($location)\DataMashup"
-    $string = $text[4].ToString()
-    $len = $string.IndexOf("/LocalPackageMetadataFile") - $string.IndexOf("LocalPackageMetadataFile")
-    $string.Substring($string.IndexOf("LocalPackageMetadataFile") -1, $len + 27) | Out-File -FilePath "$($location)\DataMashup.xml" -Encoding utf8
+    Create-XmlFiles
 
-    foreach($jsonFileName in $jsonFileNames)
-    {
-        $file = Get-ItemProperty -Path "$($location)\$($jsonFileName)"
+    Create-JsonFiles
 
-        $text = Get-Content "$($location)\$($jsonFileName)" -Encoding Unknown
-        if(Test-Path -Path "$($location)\$($jsonFileName).json")
-        {
-            Set-Content -Path "$($location)\$($jsonFileName).json" -Value $text -Encoding utf8 -Force
-            Remove-Item -Path "$($location)\$($jsonFileName)"
-        }
-
-        else
-        {
-            Set-Content -Path "$($location)\$($jsonFileName)" -Value $text -Encoding utf8 -Force
-            Rename-Item -Path "$($location)\$($jsonFileName)" -NewName "$($file.BaseName).json"
-        }
-
-    }
-
-    #Remove unnecessary files
-    Remove-Item -Path "$($location).zip"
-    Remove-Item -Path "$($location)\DataMashup"
-    Remove-Item -Path "$($location)\Metadata"
-    Remove-Item -Path "$($location)\SecurityBindings"
-    Remove-Item -Path "$($location)\Settings"
-    Remove-Item -Path "$($location)\Version"
+    Remove-UnusedFiles
 }
